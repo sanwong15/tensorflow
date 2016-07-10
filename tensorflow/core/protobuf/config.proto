@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package tensorflow;
-// option cc_enable_arenas = true;
+option cc_enable_arenas = true;
 option java_outer_classname = "ConfigProtos";
 option java_multiple_files = true;
 option java_package = "org.tensorflow.framework";
@@ -136,6 +136,10 @@ message ConfigProto {
   // inter_op_parallelism_threads.
   bool use_per_session_threads = 9;
 
+  // This option is experimental - it may be replaced with a different mechanism
+  // in the future. The intended use is for when some session invocations need
+  // to run in a background pool limited to a small number of threads.
+  //
   // Configures session thread pools. If this is configured, then RunOptions for
   // a Run call can select the thread pool to use.
   //
@@ -178,9 +182,13 @@ message ConfigProto {
 
 // EXPERIMENTAL. Options for a single Run() call.
 message RunOptions {
+  // TODO(pbar) Turn this into a TraceOptions proto which allows
+  // tracing to be controlled in a more orthogonal manner?
   enum TraceLevel {
     NO_TRACE = 0;
-    FULL_TRACE = 1;
+    SOFTWARE_TRACE = 1;
+    HARDWARE_TRACE = 2;
+    FULL_TRACE = 3;
   }
   TraceLevel trace_level = 1;
 

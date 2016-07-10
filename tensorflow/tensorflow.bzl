@@ -69,32 +69,40 @@ def tf_android_core_proto_sources_relative():
         "protobuf/saver.proto",
         "util/memmapped_file_system.proto",
         "util/saved_tensor_slice.proto",
-        "util/test_log.proto",
   ]
 
-# Returns the list of pb.h headers that are generated for
+# Returns the list of pb.h and proto.h headers that are generated for
 # tf_android_core_proto_sources().
 def tf_android_core_proto_headers():
-  return ["//tensorflow/core/" + p.replace(".proto", ".pb.h")
-          for p in tf_android_core_proto_sources_relative()]
+  return (["//tensorflow/core/" + p.replace(".proto", ".pb.h")
+          for p in tf_android_core_proto_sources_relative()] +
+         ["//tensorflow/core/" + p.replace(".proto", ".proto.h")
+          for p in tf_android_core_proto_sources_relative()])
 
 # Returns the list of protos for which proto_text headers should be generated.
-#
-# util/test_log.proto is excluded because it uses google.any, which is not
-# supported well in proto_text.
 def tf_proto_text_protos_relative():
-  return [p for p in tf_android_core_proto_sources_relative()
-          if p not in ("util/test_log.proto")]
+  return [p for p in tf_android_core_proto_sources_relative()]
 
-def if_android_arm(a, b=[]):
+def if_android_arm(a):
   return select({
       "//tensorflow:android_arm": a,
-      "//conditions:default": b,
+      "//conditions:default": [],
+  })
+
+def if_not_android(a):
+  return select({
+      "//tensorflow:android": [],
+      "//conditions:default": a,
+  })
+
+def if_android(a):
+  return select({
+      "//tensorflow:android": a,
+      "//conditions:default": [],
   })
 
 def tf_copts():
-  return (["-fno-exceptions", "-DEIGEN_AVOID_STL_ARRAY",
-           "-DTENSORFLOW_USE_EIGEN_THREADPOOL"] +
+  return (["-fno-exceptions", "-DEIGEN_AVOID_STL_ARRAY"] +
           if_cuda(["-DGOOGLE_CUDA=1"]) +
           if_android_arm(["-mfpu=neon"]) +
           select({"//tensorflow:android": [
@@ -222,7 +230,7 @@ def tf_gen_op_wrapper_py(name, out=None, hidden=[], visibility=None, deps=[],
 # TODO(opensource): we need to enable this to work around the hidden symbol
 # __cudaRegisterFatBinary error. Need more investigations.
 def tf_cc_test(name, deps, linkstatic=0, tags=[], data=[], size="medium",
-               suffix="", args=None):
+               suffix="", args=None, linkopts=[]):
   name = name.replace(".cc", "")
   native.cc_test(name="%s%s" % (name.replace("/", "_"), suffix),
                  size=size,
@@ -231,7 +239,7 @@ def tf_cc_test(name, deps, linkstatic=0, tags=[], data=[], size="medium",
                  copts=tf_copts(),
                  data=data,
                  deps=deps,
-                 linkopts=["-lpthread", "-lm"],
+                 linkopts=["-lpthread", "-lm"] + linkopts,
                  linkstatic=linkstatic,
                  tags=tags,)
 
@@ -242,13 +250,15 @@ def tf_cc_test_gpu(name, deps, linkstatic=0, tags=[], data=[], size="medium",
   tf_cc_test(name, deps, linkstatic=linkstatic, tags=tags, data=data,
              size=size, suffix=suffix, args=args)
 
-def tf_cuda_cc_test(name, deps, tags=[], data=[], size="medium",linkstatic=0,args=[]):
+def tf_cuda_cc_test(name, deps, tags=[], data=[], size="medium", linkstatic=0,
+                    args=[], linkopts=[]):
   tf_cc_test(name=name,
              deps=deps,
              tags=tags + ["manual"],
              data=data,
              size=size,
              linkstatic=linkstatic,
+             linkopts=linkopts,
              args=args)
   tf_cc_test(name=name,
              suffix="_gpu",
@@ -257,21 +267,26 @@ def tf_cuda_cc_test(name, deps, tags=[], data=[], size="medium",linkstatic=0,arg
              tags=tags + tf_cuda_tests_tags(),
              data=data,
              size=size,
+             linkopts=linkopts,
              args=args)
 
 # Create a cc_test for each of the tensorflow tests listed in "tests"
-def tf_cc_tests(tests, deps, linkstatic=0, tags=[], size="medium", args=None):
+def tf_cc_tests(tests, deps, linkstatic=0, tags=[], size="medium", args=None,
+                linkopts=[]):
   for t in tests:
-    tf_cc_test(t, deps, linkstatic, tags=tags, size=size, args=args)
+    tf_cc_test(t, deps, linkstatic, tags=tags, size=size, args=args,
+               linkopts=linkopts)
 
 def tf_cc_tests_gpu(tests, deps, linkstatic=0, tags=[], size="medium", args=None):
   tf_cc_tests(tests, deps, linkstatic, tags=tags, size=size, args=args)
 
 
 
-def tf_cuda_cc_tests(tests, deps, tags=[], size="medium", linkstatic=0, args=None):
+def tf_cuda_cc_tests(tests, deps, tags=[], size="medium", linkstatic=0,
+                     args=None, linkopts=[]):
   for t in tests:
-    tf_cuda_cc_test(t, deps, tags=tags, size=size, linkstatic=linkstatic, args=args)
+    tf_cuda_cc_test(t, deps, tags=tags, size=size, linkstatic=linkstatic,
+                    args=args, linkopts=linkopts)
 
 def _cuda_copts():
     """Gets the appropriate set of copts for (maybe) CUDA compilation.
@@ -302,6 +317,11 @@ def _cuda_copts():
                 "--cuda-gpu-arch=sm_35",
             ]
         ),
+    }) + select({
+        # Pass -O3 when building CUDA code with clang; some important
+        # optimizations are not enabled at O2.
+        "//third_party/gpus/cuda:using_clang_opt": ["-O3"],
+        "//conditions:default": [],
     })
 
 # Build defs for TensorFlow kernels
@@ -515,7 +535,7 @@ def cc_header_only_library(name, deps=[], **kwargs):
 
 def tf_custom_op_library_additional_deps():
   return [
-      "//google/protobuf",
+      "@protobuf//:protobuf",
       "//third_party/eigen3",
       "//tensorflow/core:framework_headers_lib",
   ]
@@ -669,7 +689,7 @@ def tf_py_test(name, srcs, size="medium", data=[], main=None, args=[],
       data=data,
       deps=[
           "//tensorflow/python:extra_py_tests_deps",
-          "//tensorflow/python:kernel_tests/gradient_checker",
+          "//tensorflow/python:gradient_checker",
       ] + additional_deps,
       srcs_version="PY2AND3")
 

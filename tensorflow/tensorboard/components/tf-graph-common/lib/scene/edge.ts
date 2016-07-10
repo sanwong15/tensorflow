@@ -1,4 +1,4 @@
-/* Copyright 2015 Google Inc. All Rights Reserved.
+/* Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the 'License');
 you may not use this file except in compliance with the License.
@@ -343,6 +343,7 @@ function position(d) {
  * d's label property will be a RenderMetaedgeInfo object.
  */
 function stylize(edgeGroup, d: EdgeData, stylize) {
+  edgeGroup.classed('faded', d.label.isFadedOut);
   let metaedge = d.label.metaedge;
   edgeGroup.select('path.' + Class.Edge.LINE)
       .classed('control-dep', metaedge && !metaedge.numRegularEdges);

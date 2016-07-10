@@ -33,8 +33,9 @@ something amazing with TensorFlow, we'd like to hear about it!
 
 The TensorFlow community has created many great projects around TensorFlow, including:
 
+* [@jtoy's awesome "Awesome TensorFlow" list of awesome things](https://github.com/jtoy/awesome-tensorflow)
 * [TensorFlow tutorials](https://github.com/pkmital/tensorflow_tutorials)
-* [Scikit Flow - Simplified Interface for TensorFlow](https://github.com/tensorflow/skflow)
+* [Scikit Flow - Simplified Interface for TensorFlow](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/contrib/learn/python/learn)
 * [Caffe to TensorFlow model converter](https://github.com/ethereon/caffe-tensorflow)
 
 ### Development
@@ -77,7 +78,8 @@ tracker for that. Instead, direct your questions to
 
 TensorFlow uses [Semantic Versioning 2.0](http://semver.org).  For details on
 the versioning of our public API and binary compatibility, see the [versioning
-document](versions.md).
+document](versions.md).  Additional details for developers are in [TensorFlow
+Data Versioning](data_versions.md).
 
 ## Roadmap
 

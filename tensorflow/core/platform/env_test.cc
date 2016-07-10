@@ -1,4 +1,4 @@
-/* Copyright 2015 Google Inc. All Rights Reserved.
+/* Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -61,9 +61,8 @@ TEST(EnvTest, FileToReadonlyMemoryRegion) {
     const string input = CreateTestFile(env, filename, length);
 
     // Create the region.
-    ReadOnlyMemoryRegion* region;
+    std::unique_ptr<ReadOnlyMemoryRegion> region;
     TF_CHECK_OK(env->NewReadOnlyMemoryRegionFromFile(filename, &region));
-    std::unique_ptr<ReadOnlyMemoryRegion> region_uptr(region);
     ASSERT_NE(region, nullptr);
     EXPECT_EQ(length, region->length());
     EXPECT_EQ(input, string(reinterpret_cast<const char*>(region->data()),
@@ -125,6 +124,14 @@ TEST(EnvTest, GetSchemeForURI) {
   EXPECT_EQ(GetSchemeFromURI("a-b:///foo"), "");
   EXPECT_EQ(GetSchemeFromURI(":///foo"), "");
   EXPECT_EQ(GetSchemeFromURI("9dfd:///foo"), "");
+}
+
+TEST(EnvTest, SleepForMicroseconds) {
+  Env* env = Env::Default();
+  const int64 start = env->NowMicros();
+  env->SleepForMicroseconds(1e6 + 5e5);
+  const int64 delta = env->NowMicros() - start;
+  EXPECT_GE(delta, 1e6 + 5e5);
 }
 
 }  // namespace tensorflow
